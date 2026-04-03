@@ -237,6 +237,30 @@ export class CanvasService {
     }
   }
 
+  // Convert raw Canvas assignments to storable assignment objects
+  // These are stored in canvasAssignments store, NOT as daily tasks
+  convertToAssignments(assignments) {
+    return assignments.map(a => ({
+      id: `canvas_${a.id}`,
+      canvasId: String(a.id),
+      title: a.name || 'Untitled Assignment',
+      courseName: a._courseName || 'Unknown Course',
+      courseId: String(a._courseId || ''),
+      description: (a.description || '').replace(/<[^>]*>/g, '').slice(0, 500),
+      dueDate: a.due_at,
+      pointsPossible: a.points_possible || 0,
+      submissionTypes: a.submission_types || [],
+      htmlUrl: a.html_url || '',
+      difficulty: this._estimateDifficulty(a),
+      progress: 0, // user-adjustable 0-100
+      status: 'active', // active | completed
+      importedAt: new Date().toISOString(),
+      aiDifficulty: null, // will be set by AI assessment
+      aiDifficultyReason: null,
+    }));
+  }
+
+  // Legacy: convert to daily tasks (still used for quick-import)
   convertToTasks(assignments) {
     return assignments.map(a => ({
       title: a.name,

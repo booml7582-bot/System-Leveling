@@ -9,11 +9,14 @@ import { CanvasService } from '../services/canvas.js';
 import { taskEngine } from '../engines/task-engine.js';
 import { showNotification } from '../components/notification.js';
 import { showModal } from '../components/modal.js';
+import { notificationService } from '../services/notifications.js';
 
 export async function renderSettings(container) {
   const settings = state.get('settings') || {};
   const profile = state.get('profile');
   const canvasProxy = settings.canvasUseProxy !== false;
+  const notifEnabled = notificationService.isEnabled();
+  const notifSupported = 'Notification' in window;
 
   container.innerHTML = `
     <div class="page">
@@ -98,6 +101,29 @@ export async function renderSettings(container) {
       <hr class="divider" />
 
       <div class="settings-group">
+        <div class="settings-group-title" style="font-family:var(--font-heading);">Notifications</div>
+        <div class="settings-item" style="margin-bottom:var(--space-3);">
+          <div class="settings-item-info">
+            <div class="settings-item-label">Push Notifications</div>
+            <div class="settings-item-desc">${notifSupported ? (notifEnabled ? 'Enabled — you will receive assignment reminders' : 'Receive reminders 7 days, 3 days, and 1 day before deadlines') : 'Not supported in this browser'}</div>
+          </div>
+          ${notifSupported ? `
+            <button class="btn ${notifEnabled ? 'btn-ghost' : 'btn-primary'} btn-sm" id="toggle-notifications">
+              ${notifEnabled ? 'Enabled' : 'Enable'}
+            </button>
+          ` : ''}
+        </div>
+        ${notifEnabled ? `
+          <div style="font-size:var(--text-xs);color:var(--color-text-muted);padding:0 var(--space-2);">
+            Reminders are sent at: 7 days, 3 days, and 1 day before each assignment deadline.
+            Daily quest reminders at 8 AM and 8 PM.
+          </div>
+        ` : ''}
+      </div>
+
+      <hr class="divider" />
+
+      <div class="settings-group">
         <div class="settings-group-title" style="font-family:var(--font-heading);">Data Management</div>
         <div style="display:flex;flex-direction:column;gap:var(--space-3);">
           <div class="settings-item">
@@ -137,6 +163,18 @@ export async function renderSettings(container) {
       </div>
     </div>
   `;
+
+  // Notification toggle
+  container.querySelector('#toggle-notifications')?.addEventListener('click', async () => {
+    const result = await notificationService.requestPermission();
+    if (result.granted) {
+      showNotification('Notifications enabled. You will receive deadline reminders.', 'success');
+      await notificationService.checkAndNotify();
+    } else {
+      showNotification(result.reason || 'Unable to enable notifications.', 'warning');
+    }
+    renderSettings(container);
+  });
 
   // Hours slider
   const hoursSlider = container.querySelector('#set-hours');
@@ -224,14 +262,59 @@ export async function renderSettings(container) {
     try {
       const useProxy = s.canvasUseProxy !== false;
       const canvas = new CanvasService(s.canvasApiToken, s.canvasDomain, useProxy);
-      const assignments = await canvas.getUpcomingAssignments();
-      if (assignments.length === 0) {
+      const rawAssignments = await canvas.getUpcomingAssignments();
+      if (rawAssignments.length === 0) {
         el.innerHTML = '<span class="text-warning" style="font-size:0.8rem;">No upcoming assignments found in the next 14 days.</span>';
       } else {
-        const tasks = canvas.convertToTasks(assignments);
-        await taskEngine.createTasks(tasks);
-        el.innerHTML = `<span class="text-success" style="font-size:0.8rem;">Imported ${tasks.length} assignment${tasks.length !== 1 ? 's' : ''} as tasks</span>`;
-        showNotification(`Imported ${tasks.length} Canvas assignments.`, 'success');
+        // Convert to assignment objects
+        const assignments = canvas.convertToAssignments(rawAssignments);
+
+        // Preserve progress for existing assignments
+        const existing = await storage.getAll('canvasAssignments');
+        const existingMap = {};
+        existing.forEach(a => { existingMap[a.canvasId] = a; });
+        for (const a of assignments) {
+          const old = existingMap[a.canvasId];
+          if (old) {
+            a.progress = old.progress;
+            a.status = old.status;
+            a.aiDifficulty = old.aiDifficulty;
+            a.aiDifficultyReason = old.aiDifficultyReason;
+          }
+        }
+
+        // Store in canvasAssignments
+        await storage.putMany('canvasAssignments', assignments);
+
+        el.innerHTML = `<span class="text-success" style="font-size:0.8rem;">Imported ${assignments.length} assignment${assignments.length !== 1 ? 's' : ''}</span>`;
+        showNotification(`Imported ${assignments.length} Canvas assignments.`, 'success');
+
+        // Run AI difficulty assessment if Gemini key available
+        const needsAssessment = assignments.filter(a => !a.aiDifficulty);
+        if (needsAssessment.length > 0 && s.geminiApiKey) {
+          el.innerHTML = '<span class="text-accent" style="font-size:0.8rem;">Assessing difficulty with AI...</span>';
+          try {
+            const ai = new AIService(s.geminiApiKey);
+            const result = await ai.assessAssignmentDifficulty(needsAssessment);
+            if (result.assessments) {
+              for (const assessment of result.assessments) {
+                const match = assignments.find(a => a.id === assessment.id || a.canvasId === assessment.id);
+                if (match) {
+                  match.aiDifficulty = assessment.difficulty;
+                  match.aiDifficultyReason = assessment.reason;
+                  await storage.put('canvasAssignments', match);
+                }
+              }
+              el.innerHTML = `<span class="text-success" style="font-size:0.8rem;">Imported ${assignments.length} assignments with AI difficulty assessment</span>`;
+            }
+          } catch (aiErr) {
+            console.warn('AI difficulty assessment failed:', aiErr);
+            el.innerHTML += '<br/><span class="text-warning" style="font-size:0.75rem;">AI difficulty assessment skipped</span>';
+          }
+        }
+
+        // Schedule notifications for imported assignments
+        await notificationService.checkAndNotify();
       }
     } catch (e) {
       const errorHtml = e.message.replace(/\n/g, '<br/>');

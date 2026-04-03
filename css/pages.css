@@ -73,6 +73,17 @@
 
 .xp-popup { position: absolute; font-family: var(--font-heading); font-size: var(--text-lg); font-weight: var(--font-weight-bold); color: var(--color-accent-primary); pointer-events: none; animation: xpFloat 1s ease forwards; }
 
+/* ── Assignment Cards ── */
+.assignment-list { display: flex; flex-direction: column; gap: 0; }
+.assignment-card { border-radius: var(--radius-lg); border-left: 3px solid var(--color-accent-tertiary); transition: all var(--transition-normal); animation: fadeInUp 0.4s ease forwards; opacity: 0; }
+.assignment-card:hover { border-color: var(--color-accent-primary); box-shadow: var(--shadow-glow-sm); }
+
+/* Range slider track styling */
+.assignment-progress-slider { -webkit-appearance: none; appearance: none; background: var(--color-bg-tertiary); border-radius: var(--radius-full); outline: none; }
+.assignment-progress-slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 14px; height: 14px; border-radius: 50%; background: var(--color-accent-primary); cursor: pointer; box-shadow: 0 0 6px rgba(0,212,255,0.4); transition: box-shadow 0.2s ease; }
+.assignment-progress-slider::-webkit-slider-thumb:hover { box-shadow: 0 0 12px rgba(0,212,255,0.6); }
+.assignment-progress-slider::-moz-range-thumb { width: 14px; height: 14px; border-radius: 50%; background: var(--color-accent-primary); cursor: pointer; border: none; box-shadow: 0 0 6px rgba(0,212,255,0.4); }
+
 /* ── Attributes Page ── */
 .attributes-grid { display: flex; flex-direction: column; gap: var(--space-4); }
 .attribute-card { background: var(--color-bg-card); border: 1px solid var(--color-border-subtle); border-radius: var(--radius-lg); padding: var(--space-5); animation: fadeInUp 0.4s ease forwards; opacity: 0; }

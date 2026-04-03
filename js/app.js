@@ -5,6 +5,7 @@
 import { Router } from './router.js';
 import { state } from './state.js';
 import { storage } from './services/storage.js';
+import { notificationService } from './services/notifications.js';
 import { renderSetup } from './pages/setup.js';
 import { renderDashboard } from './pages/dashboard.js';
 import { renderAttributes } from './pages/attributes.js';
@@ -35,6 +36,9 @@ const NAV_ITEMS = [
 
 async function init() {
   await storage.init();
+
+  // Initialize push notifications
+  await notificationService.init();
 
   const profile = await storage.get('profile', 'player');
   const attributes = await storage.getAll('attributes');

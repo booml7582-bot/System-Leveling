@@ -3,12 +3,13 @@
 // ============================================
 
 const DB_NAME = 'SoloLevelingSystem';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 const STORES = {
   profile: { keyPath: 'id' },
   attributes: { keyPath: 'id' },
   tasks: { keyPath: 'id', indexes: [{ name: 'status', keyPath: 'status' }, { name: 'dueDate', keyPath: 'dueDate' }, { name: 'createdAt', keyPath: 'createdAt' }] },
+  canvasAssignments: { keyPath: 'id', indexes: [{ name: 'dueDate', keyPath: 'dueDate' }, { name: 'canvasId', keyPath: 'canvasId' }] },
   rankHistory: { keyPath: 'id', indexes: [{ name: 'timestamp', keyPath: 'timestamp' }] },
   reEvaluations: { keyPath: 'id', indexes: [{ name: 'triggeredAt', keyPath: 'triggeredAt' }] },
   dailyLogs: { keyPath: 'id', indexes: [{ name: 'date', keyPath: 'date' }] },

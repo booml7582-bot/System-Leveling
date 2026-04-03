@@ -203,6 +203,46 @@ CRITICAL: XP rewards in adjustedTasks must be 2-5 per attribute. Do NOT use emoj
     return this._request(prompt, system);
   }
 
+  // Assess difficulty of Canvas assignments using AI
+  async assessAssignmentDifficulty(assignments) {
+    const system = `You are an academic advisor AI. Assess the difficulty of course assignments based on their details. Respond in valid JSON only. Do NOT use emojis.`;
+    const assignmentSummaries = assignments.map(a => ({
+      id: a.id || a.canvasId,
+      title: a.title,
+      course: a.courseName,
+      description: (a.description || '').slice(0, 200),
+      points: a.pointsPossible,
+      submissionTypes: a.submissionTypes,
+    }));
+
+    const prompt = `Assess the difficulty of these assignments:
+
+${JSON.stringify(assignmentSummaries, null, 2)}
+
+Respond with:
+{
+  "assessments": [
+    {
+      "id": "string (matching the input id)",
+      "difficulty": "easy|medium|hard|expert",
+      "reason": "string (1 sentence explaining why, no emojis)",
+      "estimatedHours": number (estimated hours to complete)
+    }
+  ]
+}
+
+Difficulty scale:
+- easy: Simple tasks like quizzes, short readings, participation (< 1 hour)
+- medium: Standard assignments like problem sets, short essays, labs (1-3 hours)
+- hard: Major assignments like research papers, large projects, exams (3-8 hours)
+- expert: Extremely challenging like capstone projects, thesis work (8+ hours)
+
+Base your assessment on: assignment title, course name, point value, description, and submission type.
+Do NOT use emojis.`;
+
+    return this._request(prompt, system);
+  }
+
   // Fallback templates when API is unavailable
   static getFallbackSetup(profile) {
     const suggestedAreas = profile.suggestedAreas || ['Discipline', 'Intelligence', 'Strength'];
@@ -219,7 +259,6 @@ CRITICAL: XP rewards in adjustedTasks must be 2-5 per attribute. Do NOT use emoj
     );
     const usedAttrs = filtered.length >= 3 ? filtered : attrs.slice(0, 4);
 
-    // Scale tasks to hours budget
     const baseTasks = [
       { title: 'Morning Planning Session', description: 'Plan your day for 10 minutes', durationMinutes: 10, difficulty: 'easy', attributeRewards: [{ attributeName: 'Discipline', xp: 2 }] },
       { title: 'Focused Study Block', description: 'Study or practice your main skill for 30 minutes', durationMinutes: 30, difficulty: 'medium', attributeRewards: [{ attributeName: 'Intelligence', xp: 4 }] },
@@ -239,3 +278,4 @@ CRITICAL: XP rewards in adjustedTasks must be 2-5 per attribute. Do NOT use emoj
     };
   }
 }
+
